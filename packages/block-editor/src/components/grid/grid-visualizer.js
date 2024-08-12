@@ -19,6 +19,7 @@ import { range, GridRect, getGridInfo } from './utils';
 import { store as blockEditorStore } from '../../store';
 import { useGetNumberOfBlocksBeforeCell } from './use-get-number-of-blocks-before-cell';
 import ButtonBlockAppender from '../button-block-appender';
+import { unlock } from '../../lock-unlock';
 
 export function GridVisualizer( { clientId, contentRef, parentLayout } ) {
 	const isDistractionFree = useSelect(
@@ -100,20 +101,26 @@ const GridPopover = forwardRef( ( { gridClientId, gridInfo }, ref ) => {
 	const [ isDroppingAllowed, setIsDroppingAllowed ] = useState( false );
 	const [ highlightedRect, setHighlightedRect ] = useState( null );
 
-	const gridItems = useSelect(
-		( select ) => select( blockEditorStore ).getBlocks( gridClientId ),
+	const gridItemStyles = useSelect(
+		( select ) => {
+			const { getBlockOrder, getBlockStyles } = unlock(
+				select( blockEditorStore )
+			);
+			const blockOrder = getBlockOrder( gridClientId );
+			return getBlockStyles( blockOrder );
+		},
 		[ gridClientId ]
 	);
 
 	const occupiedRects = useMemo( () => {
 		const rects = [];
-		for ( const block of gridItems ) {
+		for ( const style of Object.values( gridItemStyles ) ) {
 			const {
 				columnStart,
 				rowStart,
 				columnSpan = 1,
 				rowSpan = 1,
-			} = block.attributes.style?.layout || {};
+			} = style?.layout ?? {};
 			if ( ! columnStart || ! rowStart ) {
 				continue;
 			}
@@ -127,7 +134,7 @@ const GridPopover = forwardRef( ( { gridClientId, gridInfo }, ref ) => {
 			);
 		}
 		return rects;
-	}, [ gridItems ] );
+	}, [ gridItemStyles ] );
 
 	useEffect( () => {
 		function onGlobalDrag() {
